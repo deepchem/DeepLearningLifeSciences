@@ -51,7 +51,6 @@ loss = layers.ReduceSum(layers.SigmoidCrossEntropy(in_layers=(labels, logits)))
 model.set_loss(loss)
 
 # Train it and evaluate performance on the test set.
-
 model.fit(train_dataset, nb_epoch=50, checkpoint_interval=100)
 scores = []
 for x, y, w, id in test_dataset.itersamples():
