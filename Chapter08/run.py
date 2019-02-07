@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
 Created on Mon Sep 10 06:12:11 2018
 
@@ -14,6 +12,8 @@ import logging
 from model import DRModel, DRAccuracy, ConfusionMatrix, QuadWeightedKappa
 from data import load_images_DR
 
+RETRAIN = False
+
 train, valid, test = load_images_DR(split='random', seed=123)
 # Define and build model
 model = DRModel(
@@ -25,7 +25,8 @@ model = DRModel(
 if not os.path.exists('./test_model'):
   os.mkdir('test_model')
 model.build()
-#model.restore()
+if not RETRAIN:
+  model.restore(checkpoint="./test_model/model-84384")
 metrics = [
     dc.metrics.Metric(DRAccuracy, mode='classification'),
     dc.metrics.Metric(QuadWeightedKappa, mode='classification')
@@ -35,9 +36,16 @@ cm = [dc.metrics.Metric(ConfusionMatrix, mode='classification')]
 logger = logging.getLogger('deepchem.models.tensorgraph.tensor_graph')
 logger.setLevel(logging.DEBUG)
 for i in range(10):
-  model.fit(train, nb_epoch=10, checkpoint_interval=3512)
+  if RETRAIN:
+    print("About to fit model for 10 epochs")
+    model.fit(train, nb_epoch=10, checkpoint_interval=3512)
+  print("About to start train metrics evaluation")
   model.evaluate(train, metrics)
+  print("About to start valid metrics evaluation")
   model.evaluate(valid, metrics)
+  print("About to start valid confusion matrix evaluation")
   model.evaluate(valid, cm)
+  print("About to start test metrics evaluation")
   model.evaluate(test, metrics)
+  print("About to start test confusion matrix evaluation")
   model.evaluate(test, cm)

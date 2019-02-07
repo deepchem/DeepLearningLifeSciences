@@ -1,0 +1,26 @@
+To run this example, you will need to download the Kaggle Diabetic Retinopathy
+dataset from https://www.kaggle.com/c/diabetic-retinopathy-detection. In order
+to download this dataset, you will need to register with Kaggle. The Kaggle
+command-line API is needed for the download as well:
+https://github.com/Kaggle/kaggle-api. See directions there on how to set up the
+command-line API and get it working.
+
+Once you've downloaded the file, you will need to set up the following directory structure
+
+- DR/
+----> train/
+----> trainLabels.csv
+
+You can do this with a couple mkdir commands:
+
+mkdir DR
+mkdir DR/train
+mv (location of downloaded trainLabels.csv) DR/
+
+Finally, you will need to set the DEEPCHEM_DATA_DIR environment variable to your current directory
+
+export DEEPCHEM_DATA_DIR=`pwd`
+
+Now, you call run.py to run the model
+
+python run.py
