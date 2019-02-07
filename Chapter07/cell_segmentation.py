@@ -4,8 +4,9 @@ import numpy as np
 import os
 import re
 
-# Load the datasets.
+RETRAIN = False
 
+# Load the datasets.
 image_dir = 'BBBC005_v1_images'
 label_dir = 'BBBC005_v1_ground_truth'
 rows = ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P')
@@ -24,9 +25,8 @@ splitter = dc.splits.RandomSplitter()
 train_dataset, valid_dataset, test_dataset = splitter.train_valid_test_split(dataset, seed=123)
 
 # Create the model.
-
 learning_rate = dc.models.tensorgraph.optimizers.ExponentialDecay(0.01, 0.9, 250)
-model = dc.models.TensorGraph(learning_rate=learning_rate, model_dir='segmentation')
+model = dc.models.TensorGraph(learning_rate=learning_rate, model_dir='models/segmentation')
 features = layers.Feature(shape=(None, 520, 696, 1)) / 255.0
 labels = layers.Label(shape=(None, 520, 696, 1)) / 255.0
 # Downsample three times.
@@ -50,8 +50,18 @@ model.add_output(output)
 loss = layers.ReduceSum(layers.SigmoidCrossEntropy(in_layers=(labels, logits)))
 model.set_loss(loss)
 
+if not os.path.exists('./models'):
+  os.mkdir('models')
+if not os.path.exists('./models/segmentation'):
+  os.mkdir('models/segmentation')
+
+if not RETRAIN:
+  model.restore()
+
 # Train it and evaluate performance on the test set.
-model.fit(train_dataset, nb_epoch=50, checkpoint_interval=100)
+if RETRAIN:
+  print("About to fit model for 50 epochs")
+  model.fit(train_dataset, nb_epoch=50, checkpoint_interval=100)
 scores = []
 for x, y, w, id in test_dataset.itersamples():
   y_pred = model.predict_on_batch([x]).squeeze()

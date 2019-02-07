@@ -21,6 +21,14 @@ Finally, you will need to set the DEEPCHEM_DATA_DIR environment variable to your
 
 export DEEPCHEM_DATA_DIR=`pwd`
 
+If you'd like to get a pre-trained model, you run the following commands:
+
+wget https://s3-us-west-1.amazonaws.com/deepchem.io/featurized_datasets/DR_model.tar.gz
+mv DR_model.tar.gz test_model/
+cd test_model
+tar -zxvf DR_model.tar.gz
+cd ..
+
 Now, you call run.py to run the model
 
 python run.py
