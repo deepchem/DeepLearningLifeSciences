@@ -38,6 +38,7 @@ def load_images_DR(split='random', seed=None):
       p for p in os.listdir(images_path)
       if p.startswith('cut_') and p.endswith('.png')
   ]
+
   all_labels = dict(zip(*np.transpose(np.array(pd.read_csv(label_path)))))
 
   print("Number of images: %d" % len(image_names))
@@ -83,11 +84,11 @@ def cut_raw_images(all_images, path):
   for i, img_path in enumerate(all_images):
     if i % 100 == 0:
       print("on image %d" % i)
-    if os.path.join(path, 'cut_' + os.path.splitext(img_path)[0] + '.png'):
+    if os.path.exists(os.path.join(path, 'cut_' + os.path.splitext(img_path)[0] + '.png')):
       continue
     img = cv2.imread(os.path.join(path, img_path))
     edges = cv2.Canny(img, 10, 30)
-    coords = zip(*np.where(edges > 0))
+    coords = list(zip(*np.where(edges > 0)))
     n_p = len(coords)
 
     coords.sort(key=lambda x: (x[0], x[1]))
