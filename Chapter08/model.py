@@ -72,7 +72,7 @@ class DRModel(TensorGraph):
         in_layers=[self.inputs])
     # first conv layer
     in_layer = Conv2D(
-        self.n_init_kernel,
+        int(self.n_init_kernel),
         kernel_size=7,
         activation_fn=None,
         in_layers=[in_layer])
@@ -87,21 +87,21 @@ class DRModel(TensorGraph):
       # each module is a residual convolutional block
       # followed by a convolutional downsample layer
       in_layer = Conv2D(
-          self.n_init_kernel * 2**(ct_module - 1),
+          int(self.n_init_kernel * 2**(ct_module - 1)),
           kernel_size=1,
           activation_fn=None,
           in_layers=[res_in])
       in_layer = BatchNorm(in_layers=[in_layer])
       in_layer = ReLU(in_layers=[in_layer])
       in_layer = Conv2D(
-          self.n_init_kernel * 2**(ct_module - 1),
+          int(self.n_init_kernel * 2**(ct_module - 1)),
           kernel_size=3,
           activation_fn=None,
           in_layers=[in_layer])
       in_layer = BatchNorm(in_layers=[in_layer])
       in_layer = ReLU(in_layers=[in_layer])
       in_layer = Conv2D(
-          self.n_init_kernel * 2**ct_module,
+          int(self.n_init_kernel * 2**ct_module),
           kernel_size=1,
           activation_fn=None,
           in_layers=[in_layer])
@@ -109,7 +109,7 @@ class DRModel(TensorGraph):
 
       res_out = res_in + res_a
       res_in = Conv2D(
-          self.n_init_kernel * 2**(ct_module + 1),
+          int(self.n_init_kernel * 2**(ct_module + 1)),
           kernel_size=3,
           stride=2,
           in_layers=[res_out])
