@@ -17,12 +17,12 @@ max_length = max(len(s) for s in train_smiles)
 
 # Build the model.
 
-from deepchem.models.tensorgraph.optimizers import Adam, ExponentialDecay
-from deepchem.models.tensorgraph.models.seqtoseq import AspuruGuzikAutoEncoder
-model = AspuruGuzikAutoEncoder(tokens, max_length, model_dir='vae')
-batches_per_epoch = len(train_smiles)/model.batch_size
+from deepchem.models.optimizers import ExponentialDecay
+from deepchem.models.seqtoseq import AspuruGuzikAutoEncoder
+batch_size = 100
+batches_per_epoch = len(train_smiles)/batch_size
 learning_rate = ExponentialDecay(0.001, 0.95, batches_per_epoch)
-model.set_optimizer(Adam(learning_rate=learning_rate))
+model = AspuruGuzikAutoEncoder(tokens, max_length, model_dir='vae', batch_size=batch_size, learning_rate=learning_rate)
 
 # Train the model.
 
