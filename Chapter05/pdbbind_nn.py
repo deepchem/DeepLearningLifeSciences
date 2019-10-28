@@ -14,7 +14,7 @@ model = dc.models.MultitaskRegressor(
         dropouts=0.5,
         model_dir="pdbbind_nn",
         learning_rate=0.0003)
-model.fit(train_dataset, nb_epoch=250)
+model.fit(train_dataset, nb_epoch=50)
 
 # Evaluate it.
 
@@ -25,3 +25,4 @@ print("Train scores")
 print(train_scores)
 print("Test scores")
 print(test_scores)
+

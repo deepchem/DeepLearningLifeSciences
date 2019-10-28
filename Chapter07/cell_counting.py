@@ -20,7 +20,7 @@ splitter = dc.splits.RandomSplitter()
 train_dataset, valid_dataset, test_dataset = splitter.train_valid_test_split(dataset, seed=123)
 
 # Create the model.
-learning_rate = dc.models.tensorgraph.optimizers.ExponentialDecay(0.001, 0.9, 250)
+learning_rate = dc.models.optimizers.ExponentialDecay(0.001, 0.9, 250)
 model = dc.models.TensorGraph(learning_rate=learning_rate, model_dir='models/model')
 features = layers.Feature(shape=(None, 520, 696))
 labels = layers.Label(shape=(None,))
