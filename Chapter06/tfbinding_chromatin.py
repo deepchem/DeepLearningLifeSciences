@@ -2,28 +2,28 @@
 # sequence and chromatin accessibility.
 
 import deepchem as dc
-import deepchem.models.tensorgraph.layers as layers
 import tensorflow as tf
+import tensorflow.keras.layers as layers
 import numpy as np
 
 # Build the model.
 
-model = dc.models.TensorGraph(batch_size=1000, model_dir='chromatin')
-features = layers.Feature(shape=(None, 101, 4))
-accessibility = layers.Feature(shape=(None, 1))
-labels = layers.Label(shape=(None, 1))
-weights = layers.Weights(shape=(None, 1))
+features = tf.keras.Input(shape=(101, 4))
+accessibility = tf.keras.Input(shape=(1,))
 prev = features
 for i in range(3):
-    prev = layers.Conv1D(filters=15, kernel_size=10, activation=tf.nn.relu, padding='same', in_layers=prev)
-    prev = layers.Dropout(dropout_prob=0.5, in_layers=prev)
-prev = layers.Concat([layers.Flatten(prev), accessibility])
-logits = layers.Dense(out_channels=1, in_layers=prev)
-output = layers.Sigmoid(logits)
-model.add_output(output)
-loss = layers.SigmoidCrossEntropy(in_layers=[labels, logits])
-weighted_loss = layers.WeightedError(in_layers=[loss, weights])
-model.set_loss(weighted_loss)
+    prev = layers.Conv1D(filters=15, kernel_size=10, activation=tf.nn.relu, padding='same')(prev)
+    prev = layers.Dropout(rate=0.5)(prev)
+prev = layers.Concatenate()([layers.Flatten()(prev), accessibility])
+logits = layers.Dense(units=1)(prev)
+output = layers.Activation(tf.math.sigmoid)(logits)
+keras_model = tf.keras.Model(inputs=[features, accessibility], outputs=[output, logits])
+model = dc.models.KerasModel(
+    keras_model,
+    loss=dc.models.losses.SigmoidCrossEntropy(),
+    output_types=['prediction', 'loss'],
+    batch_size=1000,
+    model_dir='chromatin')
 
 # Load the data.
 
@@ -39,17 +39,12 @@ for line in open('accessibility.txt'):
 def generate_batches(dataset, epochs):
     for epoch in range(epochs):
         for X, y, w, ids in dataset.iterbatches(batch_size=1000, pad_batches=True):
-            yield {
-                features: X,
-                accessibility: np.array([span_accessibility[id] for id in ids]),
-                labels: y,
-                weights: w
-            }
+            yield ([X, np.array([span_accessibility[id] for id in ids])], [y], [w])
 
 # Train the model, tracking its performance on the training and validation datasets.
 
 metric = dc.metrics.Metric(dc.metrics.roc_auc_score)
 for i in range(20):
     model.fit_generator(generate_batches(train, epochs=10))
-    print(model.evaluate_generator(generate_batches(train, 1), [metric], labels=[labels], weights=[weights]))
-    print(model.evaluate_generator(generate_batches(valid, 1), [metric], labels=[labels], weights=[weights]))
+    print(model.evaluate_generator(generate_batches(train, 1), [metric]))
+    print(model.evaluate_generator(generate_batches(valid, 1), [metric]))

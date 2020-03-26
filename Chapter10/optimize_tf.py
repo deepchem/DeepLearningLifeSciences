@@ -1,26 +1,26 @@
 # Identify inputs that maximize the output of the trained TF binding model.
 
 import deepchem as dc
-import deepchem.models.tensorgraph.layers as layers
 import tensorflow as tf
+import tensorflow.keras.layers as layers
 import numpy as np
 
 # Start by building the model.
 
-model = dc.models.TensorGraph(batch_size=1000, model_dir='../Chapter06/tf')
-features = layers.Feature(shape=(None, 101, 4))
-labels = layers.Label(shape=(None, 1))
-weights = layers.Weights(shape=(None, 1))
+features = tf.keras.Input(shape=(101, 4))
 prev = features
 for i in range(3):
-    prev = layers.Conv1D(filters=15, kernel_size=10, activation=tf.nn.relu, padding='same', in_layers=prev)
-    prev = layers.Dropout(dropout_prob=0.5, in_layers=prev)
-logits = layers.Dense(out_channels=1, in_layers=layers.Flatten(prev))
-output = layers.Sigmoid(logits)
-model.add_output(output)
-loss = layers.SigmoidCrossEntropy(in_layers=[labels, logits])
-weighted_loss = layers.WeightedError(in_layers=[loss, weights])
-model.set_loss(weighted_loss)
+    prev = layers.Conv1D(filters=15, kernel_size=10, activation=tf.nn.relu, padding='same')(prev)
+    prev = layers.Dropout(rate=0.5)(prev)
+logits = layers.Dense(units=1)(layers.Flatten()(prev))
+output = layers.Activation(tf.math.sigmoid)(logits)
+keras_model = tf.keras.Model(inputs=features, outputs=[output, logits])
+model = dc.models.KerasModel(
+    keras_model,
+    loss=dc.models.losses.SigmoidCrossEntropy(),
+    output_types=['prediction', 'loss'],
+    batch_size=1000,
+    model_dir='../Chapter06/tf')
 
 # Reload the trained model parameters.  This assumes you already ran the tfbinding.py
 # script in the Chapter06 directory to train the model.

@@ -1,23 +1,24 @@
 # Train a model to predict how well sequences will work for RNA interference.
 
 import deepchem as dc
-import deepchem.models.tensorgraph.layers as layers
 import tensorflow as tf
+import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plot
 
 # Build the model.
 
-model = dc.models.TensorGraph(model_dir='rnai')
-features = layers.Feature(shape=(None, 21, 4))
-labels = layers.Label(shape=(None, 1))
+features = tf.keras.Input(shape=(21, 4))
 prev = features
 for i in range(2):
-    prev = layers.Conv1D(filters=10, kernel_size=10, activation=tf.nn.relu, padding='same', in_layers=prev)
-    prev = layers.Dropout(dropout_prob=0.3, in_layers=prev)
-output = layers.Dense(out_channels=1, activation_fn=tf.sigmoid, in_layers=layers.Flatten(prev))
-model.add_output(output)
-loss = layers.ReduceMean(layers.L2Loss(in_layers=[labels, output]))
-model.set_loss(loss)
+    prev = layers.Conv1D(filters=10, kernel_size=10, activation=tf.nn.relu, padding='same')(prev)
+    prev = layers.Dropout(rate=0.3)(prev)
+output = layers.Dense(units=1, activation=tf.math.sigmoid)(layers.Flatten()(prev))
+keras_model = tf.keras.Model(inputs=features, outputs=output)
+model = dc.models.KerasModel(
+    keras_model,
+    loss=dc.models.losses.L2Loss(),
+    batch_size=1000,
+    model_dir='rnai')
 
 # Load the data.
 
