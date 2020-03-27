@@ -1,5 +1,6 @@
 import deepchem as dc
-import deepchem.models.tensorgraph.layers as layers
+import tensorflow as tf
+import tensorflow.keras.layers as layers
 import numpy as np
 import os
 import re
@@ -25,30 +26,32 @@ splitter = dc.splits.RandomSplitter()
 train_dataset, valid_dataset, test_dataset = splitter.train_valid_test_split(dataset, seed=123)
 
 # Create the model.
-learning_rate = dc.models.optimizers.ExponentialDecay(0.01, 0.9, 250)
-model = dc.models.TensorGraph(learning_rate=learning_rate, model_dir='models/segmentation')
-features = layers.Feature(shape=(None, 520, 696, 1)) / 255.0
-labels = layers.Label(shape=(None, 520, 696, 1)) / 255.0
+features = tf.keras.Input(shape=(520, 696, 1))
 # Downsample three times.
-conv1 = layers.Conv2D(16, kernel_size=5, stride=2, in_layers=features)
-conv2 = layers.Conv2D(32, kernel_size=5, stride=2, in_layers=conv1)
-conv3 = layers.Conv2D(64, kernel_size=5, stride=2, in_layers=conv2)
+conv1 = layers.Conv2D(16, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(features/255.0)
+conv2 = layers.Conv2D(32, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(conv1)
+conv3 = layers.Conv2D(64, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(conv2)
 # Do a 1x1 convolution.
-conv4 = layers.Conv2D(64, kernel_size=1, stride=1, in_layers=conv3)
+conv4 = layers.Conv2D(64, kernel_size=1, strides=1)(conv3)
 # Upsample three times.
-concat1 = layers.Concat(in_layers=[conv3, conv4], axis=3)
-deconv1 = layers.Conv2DTranspose(32, kernel_size=5, stride=2, in_layers=concat1)
-concat2 = layers.Concat(in_layers=[conv2, deconv1], axis=3)
-deconv2 = layers.Conv2DTranspose(16, kernel_size=5, stride=2, in_layers=concat2)
-concat3 = layers.Concat(in_layers=[conv1, deconv2], axis=3)
-deconv3 = layers.Conv2DTranspose(1, kernel_size=5, stride=2, in_layers=concat3)
+concat1 = layers.Concatenate(axis=3)([conv3, conv4])
+deconv1 = layers.Conv2DTranspose(32, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(concat1)
+concat2 = layers.Concatenate(axis=3)([conv2, deconv1])
+deconv2 = layers.Conv2DTranspose(16, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(concat2)
+concat3 = layers.Concatenate(axis=3)([conv1, deconv2])
+deconv3 = layers.Conv2DTranspose(1, kernel_size=5, strides=2, activation=tf.nn.relu, padding='same')(concat3)
 # Compute the final output.
-concat4 = layers.Concat(in_layers=[features, deconv3], axis=3)
-logits = layers.Conv2D(1, kernel_size=5, stride=1, activation_fn=None, in_layers=concat4)
-output = layers.Sigmoid(logits)
-model.add_output(output)
-loss = layers.ReduceSum(layers.SigmoidCrossEntropy(in_layers=(labels, logits)))
-model.set_loss(loss)
+concat4 = layers.Concatenate(axis=3)([features, deconv3])
+logits = layers.Conv2D(1, kernel_size=5, strides=1, padding='same')(concat4)
+output = layers.Activation(tf.math.sigmoid)(logits)
+keras_model = tf.keras.Model(inputs=features, outputs=[output, logits])
+learning_rate = dc.models.optimizers.ExponentialDecay(0.01, 0.9, 250)
+model = dc.models.KerasModel(
+    keras_model,
+    loss=dc.models.losses.SigmoidCrossEntropy(),
+    output_types=['prediction', 'loss'],
+    learning_rate=learning_rate,
+    model_dir='models/segmentation')
 
 if not os.path.exists('./models'):
   os.mkdir('models')

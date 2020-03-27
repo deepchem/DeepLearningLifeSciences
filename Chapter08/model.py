@@ -6,22 +6,19 @@ Created on Mon Sep 10 06:12:10 2018
 @author: zqwu
 """
 
+import deepchem as dc
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras.layers as layers
 
 from deepchem.data import NumpyDataset, pad_features
 from deepchem.metrics import to_one_hot
-from deepchem.models.tensorgraph.layers import Layer, Dense, SoftMax, Reshape, \
-    SparseSoftMaxCrossEntropy, BatchNorm, Conv2D, MaxPool2D, WeightedError, \
-    Dropout, ReLU, Stack, Flatten, ReduceMax, WeightDecay
-from deepchem.models.tensorgraph.layers import L2Loss, Label, Weights, Feature
-from deepchem.models.tensorgraph.tensor_graph import TensorGraph
 from deepchem.trans import undo_transforms
 from deepchem.data.data_loader import ImageLoader
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 
-class DRModel(TensorGraph):
+class DRModel(dc.models.KerasModel):
 
   def __init__(self,
                n_tasks=1,
@@ -31,6 +28,7 @@ class DRModel(TensorGraph):
                n_fully_connected=[1024],
                n_classes=5,
                augment=False,
+               batch_size=100,
                **kwargs):
     """
     Parameters
@@ -57,90 +55,66 @@ class DRModel(TensorGraph):
     self.n_fully_connected = n_fully_connected
     self.n_classes = n_classes
     self.augment = augment
-    super(DRModel, self).__init__(**kwargs)
-    self.build_graph()
 
-  def build_graph(self):
     # inputs placeholder
-    self.inputs = Feature(
-        shape=(None, self.image_size, self.image_size, 3), dtype=tf.float32)
+    self.inputs = tf.keras.Input(
+        shape=(self.image_size, self.image_size, 3), dtype=tf.float32)
     # data preprocessing and augmentation
     in_layer = DRAugment(
         self.augment,
-        self.batch_size,
-        size=(self.image_size, self.image_size),
-        in_layers=[self.inputs])
+        batch_size,
+        size=(self.image_size, self.image_size))(self.inputs)
     # first conv layer
-    in_layer = Conv2D(
-        int(self.n_init_kernel),
-        kernel_size=7,
-        activation_fn=None,
-        in_layers=[in_layer])
-    in_layer = BatchNorm(in_layers=[in_layer])
-    in_layer = ReLU(in_layers=[in_layer])
+    in_layer = layers.Conv2D(int(self.n_init_kernel), kernel_size=7, padding='same')(in_layer)
+    in_layer = layers.BatchNormalization()(in_layer)
+    in_layer = layers.ReLU()(in_layer)
 
     # downsample by max pooling
-    res_in = MaxPool2D(
-        ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], in_layers=[in_layer])
+    res_in = layers.MaxPool2D(
+        pool_size=(3, 3), strides=(2, 2))(in_layer)
 
     for ct_module in range(self.n_downsample - 1):
       # each module is a residual convolutional block
       # followed by a convolutional downsample layer
-      in_layer = Conv2D(
-          int(self.n_init_kernel * 2**(ct_module - 1)),
-          kernel_size=1,
-          activation_fn=None,
-          in_layers=[res_in])
-      in_layer = BatchNorm(in_layers=[in_layer])
-      in_layer = ReLU(in_layers=[in_layer])
-      in_layer = Conv2D(
-          int(self.n_init_kernel * 2**(ct_module - 1)),
-          kernel_size=3,
-          activation_fn=None,
-          in_layers=[in_layer])
-      in_layer = BatchNorm(in_layers=[in_layer])
-      in_layer = ReLU(in_layers=[in_layer])
-      in_layer = Conv2D(
-          int(self.n_init_kernel * 2**ct_module),
-          kernel_size=1,
-          activation_fn=None,
-          in_layers=[in_layer])
-      res_a = BatchNorm(in_layers=[in_layer])
+      in_layer = layers.Conv2D(int(self.n_init_kernel * 2**(ct_module - 1)), kernel_size=1, padding='same')(res_in)
+      in_layer = layers.BatchNormalization()(in_layer)
+      in_layer = layers.ReLU()(in_layer)
+      in_layer = layers.Conv2D(int(self.n_init_kernel * 2**(ct_module - 1)), kernel_size=3, padding='same')(in_layer)
+      in_layer = layers.BatchNormalization()(in_layer)
+      in_layer = layers.ReLU()(in_layer)
+      in_layer = layers.Conv2D(int(self.n_init_kernel * 2**ct_module), kernel_size=1, padding='same')(in_layer)
+      res_a = layers.BatchNormalization()(in_layer)
 
       res_out = res_in + res_a
-      res_in = Conv2D(
+      res_in = layers.Conv2D(
           int(self.n_init_kernel * 2**(ct_module + 1)),
           kernel_size=3,
-          stride=2,
-          in_layers=[res_out])
-      res_in = BatchNorm(in_layers=[res_in])
+          strides=2,
+          activation=tf.nn.relu,
+          padding='same')(res_out)
+      res_in = layers.BatchNormalization()(res_in)
 
     # max pooling over the final outcome
-    in_layer = ReduceMax(axis=(1, 2), in_layers=[res_in])
+    in_layer = layers.Lambda(lambda x: tf.reduce_max(x, axis=(1,2)))(res_in)
 
+    regularizer = tf.keras.regularizers.l2(0.1)
     for layer_size in self.n_fully_connected:
       # fully connected layers
-      in_layer = Dense(
-          layer_size, activation_fn=tf.nn.relu, in_layers=[in_layer])
+      in_layer = layers.Dense(layer_size, activation=tf.nn.relu, kernel_regularizer=regularizer)(in_layer)
       # dropout for dense layers
-      #in_layer = Dropout(0.25, in_layers=[in_layer])
+      #in_layer = layers.Dropout(0.25)(in_layer)
 
-    logit_pred = Dense(
-        self.n_tasks * self.n_classes, activation_fn=None, in_layers=[in_layer])
-    logit_pred = Reshape(
-        shape=(None, self.n_tasks, self.n_classes), in_layers=[logit_pred])
+    logit_pred = layers.Dense(self.n_tasks * self.n_classes)(in_layer)
+    logit_pred = layers.Reshape((self.n_tasks, self.n_classes))(logit_pred)
+    output = layers.Softmax()(logit_pred)
 
-    weights = Weights(shape=(None, self.n_tasks))
-    labels = Label(shape=(None, self.n_tasks), dtype=tf.int32)
-
-    output = SoftMax(logit_pred)
-    self.add_output(output)
-    loss = SparseSoftMaxCrossEntropy(in_layers=[labels, logit_pred])
-    weighted_loss = WeightedError(in_layers=[loss, weights])
-
-    # weight decay regularizer
-    # weighted_loss = WeightDecay(0.1, 'l2', in_layers=[weighted_loss])
-    self.set_loss(weighted_loss)
+    keras_model = tf.keras.Model(inputs=self.inputs, outputs=[output, logit_pred])
+    super(DRModel, self).__init__(
+        keras_model,
+        loss=dc.models.losses.SparseSoftmaxCrossEntropy(),
+        output_types=['prediction', 'loss'],
+        batch_size=batch_size,
+        **kwargs)
 
 
 def DRAccuracy(y, y_pred):
@@ -187,7 +161,7 @@ def QuadWeightedKappa(y, y_pred):
   return re
 
 
-class DRAugment(Layer):
+class DRAugment(layers.Layer):
 
   def __init__(self,
                augment,
@@ -217,14 +191,10 @@ class DRAugment(Layer):
     self.size = size
     super(DRAugment, self).__init__(**kwargs)
 
-  def create_tensor(self, in_layers=None, set_tensors=True, **kwargs):
-    inputs = self._get_input_tensors(in_layers)
-    parent_tensor = inputs[0]
-    training = kwargs['training'] if 'training' in kwargs else 1.0
-
-    parent_tensor = parent_tensor / 255.0
-    if not self.augment:
-      out_tensor = parent_tensor
+  def call(self, inputs, training=True):
+    parent_tensor = inputs / 255.0
+    if not self.augment or not training:
+      return parent_tensor
     else:
 
       def preprocess(img):
@@ -237,16 +207,9 @@ class DRAugment(Layer):
           img = tf.clip_by_value(img, 0.0, 1.0)
         if self.central_crop:
           # sample cut ratio from a clipped gaussian
-          img = tf.image.central_crop(img,
-                                      np.clip(
-                                          np.random.normal(1., 0.06), 0.8, 1.))
-          img = tf.image.resize_bilinear(
-              tf.expand_dims(img, 0), tf.convert_to_tensor(self.size))[0]
+          img = tf.image.central_crop(img, np.clip(np.random.normal(1., 0.06), 0.8, 1.))
+          img = tf.image.resize(tf.expand_dims(img, 0), tf.convert_to_tensor(self.size))[0]
         return img
 
-      outs = tf.map_fn(preprocess, parent_tensor)
-      # train/valid differences
-      out_tensor = training * outs + (1 - training) * parent_tensor
-    if set_tensors:
-      self.out_tensor = out_tensor
-    return out_tensor
+      return tf.map_fn(preprocess, parent_tensor)
+
