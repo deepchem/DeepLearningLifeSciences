@@ -24,7 +24,6 @@ model = DRModel(
     model_dir='./test_model')
 if not os.path.exists('./test_model'):
   os.mkdir('test_model')
-model.build()
 if not RETRAIN:
   os.system("sh get_pretrained_model.sh")
   model.restore(checkpoint="./test_model/model-84384")
