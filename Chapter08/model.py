@@ -118,6 +118,7 @@ class DRModel(dc.models.KerasModel):
 
 
 def DRAccuracy(y, y_pred):
+  y = np.argmax(y, 1)
   y_pred = np.argmax(y_pred, 1)
   return accuracy_score(y, y_pred)
 
@@ -131,6 +132,7 @@ def DRSpecificity(y, y_pred):
 
 
 def DRSensitivity(y, y_pred):
+  y = np.argmax(y, 1)
   y_pred = (np.argmax(y_pred, 1) > 0) * 1
   y = (y > 0) * 1
   TP = sum(y_pred * y)
@@ -139,11 +141,13 @@ def DRSensitivity(y, y_pred):
 
 
 def ConfusionMatrix(y, y_pred):
+  y = np.argmax(y, 1)
   y_pred = np.argmax(y_pred, 1)
   return confusion_matrix(y, y_pred)
 
 
 def QuadWeightedKappa(y, y_pred):
+  y = np.argmax(y, 1)
   y_pred = np.argmax(y_pred, 1)
   cm = confusion_matrix(y, y_pred)
   classes_y, counts_y = np.unique(y, return_counts=True)

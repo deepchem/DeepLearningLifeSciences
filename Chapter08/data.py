@@ -51,9 +51,8 @@ def load_images_DR(split='random', seed=None):
   weight_ratio = dict(zip(classes, np.max(cts) / cts.astype(float)))
   weights = np.array([weight_ratio[l[0]] for l in labels]).reshape((-1, 1))
 
-  loader = deepchem.data.ImageLoader()
-  dat = loader.featurize(
-      image_full_paths, labels=labels, weights=weights)
+  dat = deepchem.data.ImageDataset(
+      image_full_paths, labels, weights)
   if split == None:
     return dat
 

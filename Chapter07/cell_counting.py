@@ -15,8 +15,7 @@ for f in os.listdir(image_dir):
   if f.endswith('.TIF'):
     files.append(os.path.join(image_dir, f))
     labels.append(int(re.findall('_C(.*?)_', f)[0]))
-loader = dc.data.ImageLoader()
-dataset = loader.featurize(files, np.array(labels))
+dataset = dc.data.ImageDataset(files, np.array(labels))
 splitter = dc.splits.RandomSplitter()
 train_dataset, valid_dataset, test_dataset = splitter.train_valid_test_split(dataset, seed=123)
 
