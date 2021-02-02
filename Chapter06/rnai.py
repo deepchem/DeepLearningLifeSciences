@@ -30,5 +30,5 @@ valid = dc.data.DiskDataset('valid_siRNA')
 metric = dc.metrics.Metric(dc.metrics.pearsonr, mode='regression')
 for i in range(20):
     model.fit(train, nb_epoch=10)
-    print(model.evaluate(train, [metric])['pearsonr'][0])
-    print(model.evaluate(valid, [metric])['pearsonr'][0])
+    print(model.evaluate(train, [metric])['pearsonr'])
+    print(model.evaluate(valid, [metric])['pearsonr'])

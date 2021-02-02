@@ -1,7 +1,9 @@
 # Use a random forest to predict the PDBBind dataset.  First load the data.
 
 import deepchem as dc
-pdbbind_tasks, pdbbind_datasets, transformers = dc.molnet.load_pdbbind(featurizer="grid", split="random", subset="core")
+featurizer = dc.feat.RdkitGridFeaturizer(voxel_width=2.0, sanitize=True, flatten=True,
+                                         feature_types=['hbond', 'salt_bridge', 'pi_stack', 'cation_pi', 'ecfp', 'splif'])
+pdbbind_tasks, pdbbind_datasets, transformers = dc.molnet.load_pdbbind(featurizer=featurizer, splitter="random", subset="core")
 train_dataset, valid_dataset, test_dataset = pdbbind_datasets
 
 # Create and train the model.
